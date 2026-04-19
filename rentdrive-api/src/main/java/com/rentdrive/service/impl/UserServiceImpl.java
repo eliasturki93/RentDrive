@@ -3,8 +3,10 @@ package com.rentdrive.service.impl;
 import com.rentdrive.entity.Profile;
 import com.rentdrive.entity.Role;
 import com.rentdrive.entity.User;
+import com.rentdrive.enums.BookingStatus;
 import com.rentdrive.enums.RoleName;
 import com.rentdrive.enums.UserStatus;
+import com.rentdrive.enums.VerifStatus;
 import com.rentdrive.dto.request.ChangePasswordRequest;
 import com.rentdrive.dto.request.RegisterRequest;
 import com.rentdrive.dto.request.UpdateProfileRequest;
@@ -32,6 +34,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+
+import static com.rentdrive.enums.BookingStatus.CONFIRMED;
+import static com.rentdrive.enums.BookingStatus.IN_PROGRESS;
+import static com.rentdrive.enums.BookingStatus.PENDING;
 
 /**
  * Implémentation du service utilisateur.
@@ -126,10 +132,8 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public UserResponse getCurrentUser(UUID userId) {
-        User user = userRepository.findByIdWithProfile(userId)
+        User user = userRepository.findByIdWithAllRelations(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
-        // Chargement explicite des rôles dans la même transaction
-        user.getRoles().size(); // force l'init du Set<Role> LAZY
         return userMapper.toResponse(user);
     }
 
@@ -325,7 +329,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserResponse updateStatus(UUID userId, UserStatus status, String reason) {
-        User user = userRepository.findByIdWithProfile(userId)
+        User user = userRepository.findByIdWithAllRelations(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
 
         boolean isAdmin = user.getRoles().stream()
@@ -346,11 +350,8 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserResponse assignRole(UUID userId, RoleName roleName) {
-        User user = userRepository.findByIdWithProfile(userId)
+        User user = userRepository.findByIdWithAllRelations(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
-
-        // Charger les rôles actuels dans la transaction
-        user.getRoles().size();
 
         boolean alreadyHasRole = user.getRoles().stream()
                 .anyMatch(r -> r.getName() == roleName);
@@ -363,7 +364,7 @@ public class UserServiceImpl implements UserService {
         // Règle métier : AGENCE nécessite vérification KYC avant d'assigner le rôle
         if (roleName == RoleName.AGENCE) {
             long verifiedDocs = user.getDocuments().stream()
-                    .filter(d -> d.getStatus().name().equals("VERIFIED"))
+                    .filter(d -> d.getStatus() == VerifStatus.VERIFIED)
                     .count();
             if (verifiedDocs == 0) {
                 throw new ValidationException(
@@ -385,10 +386,8 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserResponse revokeRole(UUID userId, RoleName roleName) {
-        User user = userRepository.findByIdWithProfile(userId)
+        User user = userRepository.findByIdWithAllRelations(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
-
-        user.getRoles().size();
 
         // Garder au minimum 1 rôle (LOCATAIRE)
         if (user.getRoles().size() == 1) {
@@ -425,17 +424,11 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void deleteAccount(UUID userId) {
-        User user = userRepository.findById(userId)
+        userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
 
-        // Vérification : l'utilisateur n'a pas de réservation active
-        boolean hasActiveBooking = user.getBookings().stream()
-                .anyMatch(b -> {
-                    String s = b.getStatus().name();
-                    return s.equals("PENDING")
-                        || s.equals("CONFIRMED")
-                        || s.equals("IN_PROGRESS");
-                });
+        boolean hasActiveBooking = userRepository.hasActiveBookings(
+                userId, List.of(PENDING, CONFIRMED, IN_PROGRESS));
 
         if (hasActiveBooking) {
             throw new ValidationException(
@@ -444,7 +437,7 @@ public class UserServiceImpl implements UserService {
             );
         }
 
-        userRepository.delete(user);
+        userRepository.deleteById(userId);
         log.info("Compte {} supprimé.", userId);
         // TODO: eventPublisher.publish(new UserDeletedEvent(userId));
     }

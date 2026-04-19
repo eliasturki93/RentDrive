@@ -68,7 +68,7 @@ public class UserController {
      * @AuthenticationPrincipal injecté par Spring Security après validation JWT.
      */
     @GetMapping("/api/v1/users/me")
-    //@PreAuthorize("isAuthenticated()")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<UserResponse>> getMe(
             @AuthenticationPrincipal UserDetails principal) {
 
@@ -77,7 +77,7 @@ public class UserController {
     }
 
     @PatchMapping("/api/v1/users/me/profile")
-    //@PreAuthorize("isAuthenticated()")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<UserResponse>> updateMyProfile(
             @AuthenticationPrincipal UserDetails principal,
             @Valid @RequestBody UpdateProfileRequest request) {

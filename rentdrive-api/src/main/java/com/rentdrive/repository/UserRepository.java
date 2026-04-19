@@ -1,6 +1,7 @@
 package com.rentdrive.repository;
 
 import com.rentdrive.entity.User;
+import com.rentdrive.enums.BookingStatus;
 import com.rentdrive.enums.RoleName;
 import com.rentdrive.enums.UserStatus;
 import org.springframework.data.domain.Page;
@@ -206,4 +207,16 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("UPDATE User u SET u.passwordHash = :hash WHERE u.id = :id")
     int updatePasswordHash(@Param("id")   UUID id,
                            @Param("hash") String hash);
+
+    /**
+     * Vérifie si un user possède des réservations actives (PENDING, CONFIRMED, IN_PROGRESS).
+     * Utilisé avant la suppression de compte.
+     */
+    @Query("""
+            SELECT COUNT(b) > 0 FROM Booking b
+            WHERE b.renter.id = :userId
+              AND b.status IN :statuses
+            """)
+    boolean hasActiveBookings(@Param("userId")   UUID userId,
+                              @Param("statuses") List<BookingStatus> statuses);
 }
