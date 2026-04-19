@@ -11,7 +11,7 @@ public record PageResponse<T>(
     int     totalPages,
     boolean last
 ) {
-    static <T> PageResponse<T> of(Page<T> p) {
+    public static <T> PageResponse<T> of(Page<T> p) {
         return new PageResponse<>(p.getContent(), p.getNumber(), p.getSize(),
                                   p.getTotalElements(), p.getTotalPages(), p.isLast());
     }

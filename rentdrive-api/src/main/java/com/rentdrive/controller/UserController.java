@@ -3,7 +3,6 @@ package com.rentdrive.controller;
 import com.rentdrive.enums.RoleName;
 import com.rentdrive.enums.UserStatus;
 import com.rentdrive.dto.request.ChangePasswordRequest;
-import com.rentdrive.dto.request.RegisterRequest;
 import com.rentdrive.dto.request.UpdateProfileRequest;
 import com.rentdrive.dto.response.ApiResponse;
 import com.rentdrive.dto.response.PageResponse;
@@ -14,7 +13,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -45,19 +43,6 @@ import java.util.UUID;
 public class UserController {
 
     private final UserService userService;
-
-    // =========================================================================
-    // INSCRIPTION (public — pas d'auth requise)
-    // =========================================================================
-
-    @PostMapping("/api/v1/auth/register")
-    public ResponseEntity<ApiResponse<UserResponse>> register(
-            @Valid @RequestBody RegisterRequest request) {
-
-        UserResponse user = userService.register(request);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.created("Compte créé avec succès. Vérifiez votre email.", user));
-    }
 
     // =========================================================================
     // PROFIL COURANT — endpoints /me
