@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: rent-driver
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}?zeroDateTimeBehavior=convertToNull
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: none
+  flyway:
+    enabled: flase
+    locations: update
+    validate-on-migrate: true
+    baseline-on-migrate: true
+

@@ -1,0 +1,12 @@
+# Angular
+/dist
+/tmp
+/out-tsc
+/bazel-out
+node_modules
+npm-debug.log
+yarn-error.log
+.pnp
+.pnp.js
+.angular/cache
+*.js.map

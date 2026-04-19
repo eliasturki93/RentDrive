@@ -1,0 +1,42 @@
+# Env
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+.nb-gradle/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Java / Maven
+rentdrive-api/target/
+rentdrive-api/.mvn/wrapper/maven-wrapper.jar
+
+# Node / Angular
+rentdrive-web/node_modules/
+rentdrive-web/dist/
+rentdrive-web/.angular/
+rentdrive-web/npm-debug.log
+
+# Flutter
+rentdrive-mobile/.dart_tool/
+rentdrive-mobile/build/
+rentdrive-mobile/.flutter-plugins
+rentdrive-mobile/.flutter-plugins-dependencies
+
+# Claude
+.claude/
