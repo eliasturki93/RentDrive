@@ -63,8 +63,7 @@ public class User {
      * Relation 1:1 — Profile est le côté propriétaire (detient la FK user_id).
      * cascade = ALL : créer/supprimer un User entraîne Profile.
      */
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL,
-              fetch = FetchType.LAZY, optional = false)
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, optional = false)
     private Profile profile;
 
     /**
@@ -83,7 +82,7 @@ public class User {
      * Un User peut gérer au plus 1 Store (contrainte UK sur owner_id).
      * Relation inverse — Store est le côté propriétaire.
      */
-    @OneToOne(mappedBy = "owner", fetch = FetchType.LAZY)
+    @OneToOne(mappedBy = "owner")
     private Store store;
 
     /** Toutes les réservations effectuées par ce locataire. */

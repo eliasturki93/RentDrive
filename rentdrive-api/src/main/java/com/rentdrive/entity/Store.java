@@ -1,7 +1,7 @@
 package com.rentdrive.entity;
 
+import com.rentdrive.enums.StoreStatus;
 import com.rentdrive.enums.StoreType;
-import com.rentdrive.enums.VerifStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -53,7 +53,7 @@ public class Store {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "verification_status", nullable = false, length = 15)
-    private VerifStatus verificationStatus = VerifStatus.PENDING;
+    private StoreStatus status = StoreStatus.PENDING;
 
     @Column(columnDefinition = "TEXT")
     private String description;
