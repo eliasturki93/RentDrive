@@ -35,10 +35,17 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Public
+                        // Auth
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/register").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").permitAll()
+                        // Catalogue public
+                        .requestMatchers(HttpMethod.GET, "/api/v1/vehicles").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/vehicles/{id}").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/vehicles/{id}/reviews").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/stores/{id}/reviews").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/stores").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/stores/{id}").permitAll()
                         // Swagger
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         // Tout le reste : authentifié
