@@ -12,6 +12,9 @@ import com.rentdrive.enums.Transmission;
 import com.rentdrive.enums.VehicleCategory;
 import com.rentdrive.enums.VehicleStatus;
 import com.rentdrive.service.VehicleService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -27,18 +30,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * POST   /api/v1/vehicles                        BAILLEUR/AGENCE
- * GET    /api/v1/vehicles/mine                   BAILLEUR/AGENCE
- * GET    /api/v1/vehicles/{id}                   Public
- * PATCH  /api/v1/vehicles/{id}                   BAILLEUR/AGENCE (owner)
- * DELETE /api/v1/vehicles/{id}                   BAILLEUR/AGENCE (owner)
- * POST   /api/v1/vehicles/{id}/photos            BAILLEUR/AGENCE (owner)
- * DELETE /api/v1/vehicles/{id}/photos/{photoId}  BAILLEUR/AGENCE (owner)
- * GET    /api/v1/vehicles                        Public (catalogue AVAILABLE)
- * PATCH  /api/v1/admin/vehicles/{id}/status      ADMIN
- * GET    /api/v1/admin/vehicles                  ADMIN
- */
+@Tag(name = "Véhicules", description = "Catalogue de véhicules — ajout par les bailleurs, consultation publique et modération admin")
 @RestController
 @RequiredArgsConstructor
 public class VehicleController {
@@ -47,6 +39,17 @@ public class VehicleController {
 
     // ── Owner ────────────────────────────────────────────────────────────────
 
+    @Operation(
+        summary = "Ajouter un véhicule",
+        description = "Ajoute un nouveau véhicule au catalogue du store de l'utilisateur connecté. " +
+                      "Le store doit être approuvé (statut APPROVED) avant de pouvoir ajouter des véhicules. " +
+                      "Le véhicule est créé avec le statut PENDING_REVIEW et doit être validé par un admin."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Véhicule ajouté, en attente de validation"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Store non approuvé"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Store introuvable pour cet utilisateur")
+    })
     @PostMapping("/api/v1/vehicles")
     @PreAuthorize("hasAnyRole('BAILLEUR', 'AGENCE')")
     public ResponseEntity<ApiResponse<VehicleResponse>> createVehicle(
@@ -59,6 +62,11 @@ public class VehicleController {
                 .body(ApiResponse.created("Véhicule ajouté. En attente de validation.", vehicle));
     }
 
+    @Operation(
+        summary = "Mes véhicules",
+        description = "Retourne la liste complète des véhicules du store de l'utilisateur connecté, " +
+                      "tous statuts confondus (AVAILABLE, RENTED, PENDING_REVIEW, UNAVAILABLE)."
+    )
     @GetMapping("/api/v1/vehicles/mine")
     @PreAuthorize("hasAnyRole('BAILLEUR', 'AGENCE')")
     public ResponseEntity<ApiResponse<List<VehicleSummaryResponse>>> getMyVehicles(
@@ -68,6 +76,17 @@ public class VehicleController {
         return ResponseEntity.ok(ApiResponse.ok(vehicleService.getMyVehicles(ownerId)));
     }
 
+    @Operation(
+        summary = "Modifier un véhicule",
+        description = "Met à jour les informations d'un véhicule appartenant au store de l'utilisateur connecté. " +
+                      "Seuls les champs envoyés sont modifiés (PATCH sémantique). " +
+                      "Impossible si le véhicule est en cours de location (statut RENTED)."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Véhicule mis à jour"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Ce véhicule n'appartient pas à votre store"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Véhicule introuvable")
+    })
     @PatchMapping("/api/v1/vehicles/{id}")
     @PreAuthorize("hasAnyRole('BAILLEUR', 'AGENCE')")
     public ResponseEntity<ApiResponse<VehicleResponse>> updateVehicle(
@@ -80,6 +99,15 @@ public class VehicleController {
                 ApiResponse.ok("Véhicule mis à jour.", vehicleService.update(ownerId, id, request)));
     }
 
+    @Operation(
+        summary = "Supprimer un véhicule",
+        description = "Supprime définitivement un véhicule du catalogue. " +
+                      "Impossible si le véhicule est actuellement loué (statut RENTED)."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Véhicule supprimé"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Véhicule en cours de location, suppression impossible")
+    })
     @DeleteMapping("/api/v1/vehicles/{id}")
     @PreAuthorize("hasAnyRole('BAILLEUR', 'AGENCE')")
     public ResponseEntity<ApiResponse<Void>> deleteVehicle(
@@ -91,6 +119,16 @@ public class VehicleController {
         return ResponseEntity.ok(ApiResponse.ok("Véhicule supprimé.", null));
     }
 
+    @Operation(
+        summary = "Ajouter une photo",
+        description = "Ajoute une photo au véhicule (URL MinIO). Maximum 10 photos par véhicule. " +
+                      "Si isPrimary=true, cette photo devient la photo principale affichée dans le catalogue " +
+                      "et l'ancienne photo principale est déclassée."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Photo ajoutée"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Maximum de 10 photos atteint")
+    })
     @PostMapping("/api/v1/vehicles/{id}/photos")
     @PreAuthorize("hasAnyRole('BAILLEUR', 'AGENCE')")
     public ResponseEntity<ApiResponse<VehicleResponse>> addPhoto(
@@ -103,6 +141,10 @@ public class VehicleController {
                 .body(ApiResponse.created("Photo ajoutée.", vehicleService.addPhoto(ownerId, id, request)));
     }
 
+    @Operation(
+        summary = "Supprimer une photo",
+        description = "Supprime une photo spécifique d'un véhicule par son ID de photo."
+    )
     @DeleteMapping("/api/v1/vehicles/{id}/photos/{photoId}")
     @PreAuthorize("hasAnyRole('BAILLEUR', 'AGENCE')")
     public ResponseEntity<ApiResponse<VehicleResponse>> deletePhoto(
@@ -115,13 +157,31 @@ public class VehicleController {
                 ApiResponse.ok("Photo supprimée.", vehicleService.deletePhoto(ownerId, id, photoId)));
     }
 
-    // ── Public catalogue ─────────────────────────────────────────────────────
+    // ── Catalogue public ─────────────────────────────────────────────────────
 
+    @Operation(
+        summary = "Détail d'un véhicule",
+        description = "Retourne toutes les informations d'un véhicule disponible : " +
+                      "marque, modèle, année, catégorie, transmission, carburant, prix/jour, dépôt, " +
+                      "photos et informations du store."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Véhicule trouvé"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Véhicule introuvable")
+    })
     @GetMapping("/api/v1/vehicles/{id}")
     public ResponseEntity<ApiResponse<VehicleResponse>> getVehicleById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(vehicleService.getById(id)));
     }
 
+    @Operation(
+        summary = "Rechercher des véhicules",
+        description = "Catalogue public des véhicules disponibles (statut AVAILABLE uniquement), " +
+                      "trié par prix croissant. Filtres optionnels cumulables : " +
+                      "wilaya (localisation), category (ECONOMY, SUV, LUXURY...), " +
+                      "transmission (MANUAL/AUTOMATIC), fuelType (ESSENCE, DIESEL, HYBRID, ELECTRIC), " +
+                      "minPrice et maxPrice (prix par jour en DA)."
+    )
     @GetMapping("/api/v1/vehicles")
     public ResponseEntity<ApiResponse<PageResponse<VehicleSummaryResponse>>> searchVehicles(
             @RequestParam(required = false) String          wilaya,
@@ -141,6 +201,11 @@ public class VehicleController {
 
     // ── Admin ────────────────────────────────────────────────────────────────
 
+    @Operation(
+        summary = "[Admin] Lister tous les véhicules",
+        description = "Retourne la liste paginée de tous les véhicules toutes statuts confondus. " +
+                      "Filtre optionnel par statut : PENDING_REVIEW (à valider), AVAILABLE, RENTED, UNAVAILABLE."
+    )
     @GetMapping("/api/v1/admin/vehicles")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<PageResponse<VehicleSummaryResponse>>> listAllVehicles(
@@ -153,6 +218,13 @@ public class VehicleController {
         return ResponseEntity.ok(ApiResponse.ok(result));
     }
 
+    @Operation(
+        summary = "[Admin] Changer le statut d'un véhicule",
+        description = "Valide ou modifie le statut d'un véhicule. " +
+                      "AVAILABLE : véhicule approuvé et visible dans le catalogue. " +
+                      "PENDING_REVIEW : remis en attente de validation. " +
+                      "UNAVAILABLE : masqué temporairement du catalogue par l'admin."
+    )
     @PatchMapping("/api/v1/admin/vehicles/{id}/status")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<VehicleResponse>> updateVehicleStatus(

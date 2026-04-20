@@ -9,6 +9,9 @@ import com.rentdrive.dto.response.PageResponse;
 import com.rentdrive.dto.response.UserResponse;
 import com.rentdrive.dto.response.UserSummaryResponse;
 import com.rentdrive.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -22,36 +25,20 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Controller REST pour la ressource User.
- *
- * Routes :
- *  POST   /api/v1/auth/register              → inscription publique
- *  GET    /api/v1/users/me                   → profil courant
- *  GET    /api/v1/users/{id}                 → profil par ID (admin)
- *  PATCH  /api/v1/users/me/profile           → mise à jour profil
- *  PUT    /api/v1/users/me/password          → changement mot de passe
- *  POST   /api/v1/users/me/verify-email      → vérification email
- *  POST   /api/v1/users/me/verify-phone      → vérification téléphone
- *  GET    /api/v1/admin/users                → liste paginée (admin)
- *  PATCH  /api/v1/admin/users/{id}/status    → mise à jour statut (admin)
- *  POST   /api/v1/admin/users/{id}/roles     → assignation rôle (admin)
- *  DELETE /api/v1/admin/users/{id}/roles/{r} → révocation rôle (admin)
- */
+@Tag(name = "Utilisateurs", description = "Gestion du profil personnel et administration des comptes utilisateurs")
 @RestController
 @RequiredArgsConstructor
 public class UserController {
 
     private final UserService userService;
 
-    // =========================================================================
-    // PROFIL COURANT — endpoints /me
-    // =========================================================================
+    // ── Profil personnel ──────────────────────────────────────────────────────
 
-    /**
-     * Retourne le profil de l'utilisateur connecté.
-     * @AuthenticationPrincipal injecté par Spring Security après validation JWT.
-     */
+    @Operation(
+        summary = "Mon profil",
+        description = "Retourne les informations complètes du compte connecté : " +
+                      "email, téléphone, statut, rôles, et données de profil (nom, prénom, avatar, adresse)."
+    )
     @GetMapping("/api/v1/users/me")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<UserResponse>> getMe(
@@ -61,6 +48,16 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.ok(userService.getCurrentUser(userId)));
     }
 
+    @Operation(
+        summary = "Mettre à jour mon profil",
+        description = "Modifie les données personnelles de l'utilisateur connecté : " +
+                      "prénom, nom, date de naissance, adresse, biographie, avatar. " +
+                      "Seuls les champs envoyés sont modifiés (PATCH sémantique)."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Profil mis à jour"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Données invalides")
+    })
     @PatchMapping("/api/v1/users/me/profile")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<UserResponse>> updateMyProfile(
@@ -72,6 +69,15 @@ public class UserController {
                 ApiResponse.ok("Profil mis à jour.", userService.updateProfile(userId, request)));
     }
 
+    @Operation(
+        summary = "Changer mon mot de passe",
+        description = "Vérifie l'ancien mot de passe puis applique le nouveau. " +
+                      "Le nouveau mot de passe doit faire au moins 8 caractères."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Mot de passe changé"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Ancien mot de passe incorrect ou nouveau invalide")
+    })
     @PutMapping("/api/v1/users/me/password")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<Void>> changeMyPassword(
@@ -83,6 +89,11 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.ok("Mot de passe mis à jour avec succès.", null));
     }
 
+    @Operation(
+        summary = "Vérifier mon email",
+        description = "Marque l'email de l'utilisateur connecté comme vérifié. " +
+                      "En production, cette action sera déclenchée par un lien envoyé par email."
+    )
     @PostMapping("/api/v1/users/me/verify-email")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<Void>> verifyMyEmail(
@@ -93,6 +104,11 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.ok("Email vérifié.", null));
     }
 
+    @Operation(
+        summary = "Vérifier mon téléphone",
+        description = "Marque le téléphone de l'utilisateur connecté comme vérifié. " +
+                      "En production, cette action sera déclenchée par un code OTP SMS."
+    )
     @PostMapping("/api/v1/users/me/verify-phone")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<Void>> verifyMyPhone(
@@ -103,6 +119,16 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.ok("Téléphone vérifié.", null));
     }
 
+    @Operation(
+        summary = "Supprimer mon compte",
+        description = "Supprime définitivement le compte de l'utilisateur connecté. " +
+                      "Impossible si des réservations sont en cours (PENDING, CONFIRMED ou IN_PROGRESS). " +
+                      "Cette action est irréversible."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Compte supprimé"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Réservations actives en cours, suppression impossible")
+    })
     @DeleteMapping("/api/v1/users/me")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<Void>> deleteMyAccount(
@@ -113,14 +139,14 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.ok("Compte supprimé.", null));
     }
 
-    // =========================================================================
-    // ADMINISTRATION — ROLE_ADMIN uniquement
-    // =========================================================================
+    // ── Administration ────────────────────────────────────────────────────────
 
-    /**
-     * Liste paginée des utilisateurs avec recherche optionnelle.
-     * Exemple : GET /api/v1/admin/users?q=lyes&page=0&size=20&sort=createdAt,desc
-     */
+    @Operation(
+        summary = "[Admin] Lister les utilisateurs",
+        description = "Retourne la liste paginée de tous les utilisateurs avec recherche full-text optionnelle. " +
+                      "La recherche porte sur le prénom, le nom et l'email. " +
+                      "Exemple : GET /api/v1/admin/users?q=lyes&page=0&size=20&sort=createdAt,desc"
+    )
     @GetMapping("/api/v1/admin/users")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<PageResponse<UserSummaryResponse>>> listUsers(
@@ -139,12 +165,22 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.ok(result));
     }
 
+    @Operation(
+        summary = "[Admin] Détail d'un utilisateur",
+        description = "Retourne le profil complet d'un utilisateur par son ID, " +
+                      "incluant ses rôles, son store et ses documents KYC."
+    )
     @GetMapping("/api/v1/admin/users/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<UserResponse>> getUserById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(userService.getById(id)));
     }
 
+    @Operation(
+        summary = "[Admin] Lister les utilisateurs par rôle",
+        description = "Retourne tous les utilisateurs actifs possédant un rôle précis. " +
+                      "Rôles disponibles : LOCATAIRE, BAILLEUR, AGENCE, ADMIN."
+    )
     @GetMapping("/api/v1/admin/users/by-role/{role}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<UserSummaryResponse>>> getUsersByRole(
@@ -152,10 +188,15 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.ok(userService.getUsersByRole(role)));
     }
 
-    /**
-     * Mise à jour du statut : ACTIVE / SUSPENDED / BANNED.
-     * Body optionnel : { "reason": "Fraude détectée" }
-     */
+    @Operation(
+        summary = "[Admin] Changer le statut d'un utilisateur",
+        description = "Modifie le statut d'un compte : ACTIVE (réactivation), SUSPENDED (suspension temporaire) " +
+                      "ou BANNED (bannissement définitif). Un utilisateur SUSPENDED ou BANNED ne peut plus se connecter."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Statut mis à jour"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Utilisateur introuvable")
+    })
     @PatchMapping("/api/v1/admin/users/{id}/status")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<UserResponse>> updateStatus(
@@ -167,6 +208,12 @@ public class UserController {
                 ApiResponse.ok("Statut mis à jour.", userService.updateStatus(id, status, reason)));
     }
 
+    @Operation(
+        summary = "[Admin] Assigner un rôle",
+        description = "Ajoute un rôle supplémentaire à un utilisateur. " +
+                      "Un utilisateur peut cumuler plusieurs rôles (ex : LOCATAIRE + BAILLEUR). " +
+                      "Rôles disponibles : LOCATAIRE, BAILLEUR, AGENCE, ADMIN."
+    )
     @PostMapping("/api/v1/admin/users/{id}/roles")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<UserResponse>> assignRole(
@@ -177,6 +224,11 @@ public class UserController {
                 ApiResponse.ok("Rôle " + role + " assigné.", userService.assignRole(id, role)));
     }
 
+    @Operation(
+        summary = "[Admin] Révoquer un rôle",
+        description = "Retire un rôle spécifique d'un utilisateur. " +
+                      "Le rôle est passé dans l'URL. Ex : DELETE /api/v1/admin/users/{id}/roles/BAILLEUR"
+    )
     @DeleteMapping("/api/v1/admin/users/{id}/roles/{role}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<UserResponse>> revokeRole(
